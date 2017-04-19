@@ -12,19 +12,22 @@ module Tts
     @@default_url = url
   end
 
-  def to_file lang, file_name=nil
+  def to_file lang, speed
     parts = validate_text_length(self)
-    file_name = self[0..20].generate_file_name if file_name.nil?
+    contents  = ""
     parts.each do |part|
-      url = part.to_url(lang)
-      fetch_mp3(url, file_name) 
+      url = part.to_url(lang, speed)
+      fetch_content = fetch_mp3(url, nil)
+      contents = contents + fetch_content
     end
+
+    return contents
   end
-  
+
   def validate_text_length text
     if text.length > 100
       chunk_text(text)
-    else 
+    else
       [text]
     end
   end
@@ -55,20 +58,18 @@ module Tts
     gsub(/[\x00\/\\:\*\?\"<>\|]/, '_')
   end
 
-  def to_url lang
+  def to_url lang, speed
+    speeds = { normal: 1, slow: 0.2 }
     langs = ['af', 'ar', 'az', 'be', 'bg', 'bn', 'ca', 'cs', 'cy', 'da', 'de', 'el', 'en', 'en_us', 'en_gb', 'en_au', 'eo', 'es', 'et', 'eu', 'fa', 'fi', 'fr', 'ga', 'gl', 'gu', 'hi', 'hr', 'ht', 'hu', 'id', 'is', 'it', 'iw', 'ja', 'ka', 'kn', 'ko', 'la', 'lt', 'lv', 'mk', 'ms', 'mt', 'nl', 'no', 'pl', 'pt', 'ro', 'ru', 'sk', 'sl', 'sq', 'sr', 'sv', 'sw', 'ta', 'te', 'th', 'tl', 'tr', 'uk', 'ur', 'vi', 'yi', 'zh', 'zh-CN', 'zh-TW']
     raise "Not accepted language, accpeted are #{langs * ","}" unless langs.include? lang
-    base = "#{Tts.server_url}?tl=#{lang}&ie=UTF-8&client=tw-ob&q=#{URI.escape self}"
+    raise "Not accepted speed, accpeted are #{speeds.keys * ","}" unless speeds.keys.map(&:to_s).include? speed
+    base = "#{Tts.server_url}?tl=#{lang}&ie=UTF-8&client=tw-ob&q=#{URI.escape self}&ttsspeed=#{speeds[:"#{speed}"]}"
   end
 
   def fetch_mp3 url, file_name
-    begin 
+    begin
       content = open(url, "User-Agent" => @@user_agent, "Referer" => @@referer).read
- 
-      File.open("temp.mp3", "wb") do |f|
-        f.puts content
-      end
-      merge_mp3_file(file_name)
+      return content
     rescue => e
       $stderr.puts("Internet error! #{e.message}")
       exit(1)
